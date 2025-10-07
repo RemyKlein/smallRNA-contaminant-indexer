@@ -3,3 +3,66 @@ from Bio import SeqIO
 from io import StringIO, BytesIO
 from Bio.Seq import Seq
 import gzip
+import argparse
+
+def upload_miRBase(species):
+    url = "https://www.mirbase.org/download/mature.fa"
+    response = requests.get(url)
+    if response.status_code != 200:
+        raise ValueError("The website is temporarily unavailable, please try again later.")
+
+    file_mature_mirna = StringIO(response.text)
+    output_file = f"{species}_mature.fa"
+
+    with open(output_file, "w") as out_file:
+        for record in SeqIO.parse(file_mature_mirna, "fasta"):
+            if record.id.startswith(species):
+                dna_seq = str(record.seq).replace("U", "T")
+                record.seq = Seq(dna_seq)
+                SeqIO.write(record, out_file, "fasta")
+
+    return output_file
+
+def upload_rRNA():
+    url_LSU = "https://www.arb-silva.de/fileadmin/silva_databases/current/Exports/SILVA_138.2_LSURef_NR99_tax_silva.fasta.gz"
+    url_SSU = "https://www.arb-silva.de/fileadmin/silva_databases/current/Exports/SILVA_138.2_SSURef_NR99_tax_silva.fasta.gz"
+    url_list = [url_LSU, url_SSU]
+
+    output_file = "rRNA.fa"
+
+    with open(output_file, "w") as out_file:
+        for url in url_list:
+            response = requests.get(url)
+            if response.status_code != 200:
+                raise ValueError("The website is temporarily unavailable, please try again later.")
+            
+            file_rRNA = BytesIO(response.content)
+            
+            with gzip.open(file_rRNA, mode="rt") as gzip_file:
+                for record in SeqIO.parse(gzip_file, "fasta"):
+                    dna_seq = str(record.seq).replace("U", "T")
+                    record.seq = Seq(dna_seq)
+                    SeqIO.write(record, out_file, "fasta")
+    
+    return output_file
+
+def upload_tRNA(specie):
+    
+    tRNA_species = {
+        "hsa": "",
+        "mmu": "C:/Users/41796/Documents/Python/RNA_sequences/mm39-mature-tRNAs.fa"
+    }
+
+    output_file = f"{specie}_tRNA.fa"
+    with open(output_file, "w") as out_file:
+        for record in SeqIO.parse(tRNA_species[specie], "fasta"):
+            dna_seq = str(record.seq).replace("U", "T")
+            record.seq = Seq(dna_seq)
+            SeqIO.write(record, out_file, "fasta")
+    
+    return output_file
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Download, process, and concatenate small RNA contaminant sequences to generate Bowtie indices for filtering smallRNA-seq reads."
+        )
